@@ -8,7 +8,9 @@
 ## Requirements
 
 * Python 3.6
-* PyTorch 0.4.1
+* torch 0.4.1
+* torchvision 0.2.1
+* tqdm
 
 
 ## Setup
