@@ -3,6 +3,7 @@ import os
 
 import torch
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from dataset import Dataset
 from metrics import Metrics
@@ -13,33 +14,37 @@ import numpy as np
 def _eval(path_to_checkpoint: str, path_to_data_dir: str, path_to_results_dir: str):
     os.makedirs(path_to_results_dir, exist_ok=True)
 
-    model = Model()
-    model.load(path_to_checkpoint).eval()
+    model = Model().cuda()
+    model.load(path_to_checkpoint)
 
     dataset = Dataset(path_to_data_dir, Dataset.Mode.EVAL)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=2, pin_memory=True)
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=2, pin_memory=True)
 
     print('Start evaluating')
 
     with torch.no_grad():
-        merged_logits = torch.tensor([], dtype=torch.float)
-        merged_multilabels = torch.tensor([], dtype=torch.float)
+        all_logits = []
+        all_multilabels = []
 
-        for batch_idx, (images, multilabels) in enumerate(dataloader):
+        for batch_idx, (images, multilabels) in enumerate(tqdm(dataloader)):
             images = images.cuda()
-            multilabels = multilabels.cuda()
+            multilabels = multilabels.cuda().float()
 
-            logits = model(images)
+            logits = model.eval().forward(images)
 
-            merged_logits = torch.cat([merged_logits, logits.cpu()])
-            merged_multilabels = torch.cat([merged_multilabels, multilabels.cpu()])
+            all_logits.append(logits.cpu())
+            all_multilabels.append(multilabels.cpu())
 
-        _, sorted_indexes = merged_logits.sort(dim=0, descending=True)
+        all_logits = torch.cat(all_logits, dim=0)
+        all_multilabels = torch.cat(all_multilabels, dim=0)
+
+        probabilities = torch.sigmoid(all_logits)
+        _, sorted_indices = probabilities.t().sort(dim=1, descending=True)
 
         aps = []
-        for sorted_index, merged_multilabel in zip(sorted_indexes.t(), merged_multilabels.t()):
-            merged_multilabel = merged_multilabel[sorted_index]
-            ap = Metrics.interpolated_average_precision_at_n_points(merged_multilabel.numpy(), 11)
+        for sorted_index, multilabel in zip(sorted_indices, all_multilabels.t()):
+            multilabel = multilabel[sorted_index]
+            ap = Metrics.interpolated_average_precision_at_n_points(multilabel.numpy(), 11)
             aps.append(ap)
         aps = np.array(aps)
 
