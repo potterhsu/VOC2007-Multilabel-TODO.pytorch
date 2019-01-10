@@ -19,7 +19,7 @@ def _train(path_to_data_dir: str, path_to_checkpoints_dir: str):
 
     model = Model().cuda()
     optimizer = optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, weight_decay=0.0005)
-    scheduler = StepLR(optimizer, step_size=20000, gamma=0.1)
+    scheduler = StepLR(optimizer, step_size=70000, gamma=0.1)
 
     step = 0
     time_checkpoint = time.time()
@@ -28,7 +28,7 @@ def _train(path_to_data_dir: str, path_to_checkpoints_dir: str):
 
     num_steps_to_display = 20
     num_steps_to_snapshot = 10000
-    num_steps_to_finish = 30000
+    num_steps_to_finish = 100000
 
     print('Start training')
 
